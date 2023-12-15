@@ -1,0 +1,307 @@
+//Lazarenko Arina
+//257259
+//Programowanie Wspolbiezne Lista 2
+
+package main
+
+import (
+	"fmt"
+	"math/rand"
+	"sync"
+	"time"
+)
+
+var numRows, numCols int
+
+var matrix [][]int
+var mutex = &sync.Mutex{}
+
+type Threat struct {
+	X, Y      int
+	ExpiresIn time.Duration
+}
+
+type WildOccupant struct {
+	X, Y      int
+	ExpiresIn time.Duration
+}
+
+var threats []Threat
+var wildOccupants []WildOccupant
+
+// initializeMatrix initializes the matrix with default values.
+func initializeMatrix() {
+	for i := 0; i < numRows; i++ {
+		for j := 0; j < numCols; j++ {
+			matrix[i][j] = -1
+		}
+	}
+}
+
+// printMatrix prints the current state of the matrix, representing travelers, threats, and wild occupants.
+func printMatrix() {
+	mutex.Lock()
+	defer mutex.Unlock()
+	fmt.Println("")
+	fmt.Println("Rozmieszczenie podróżników:")
+
+	for i := 0; i < numRows; i++ {
+		for j := 0; j < numCols; j++ {
+			switch {
+			case matrix[i][j] == -1:
+				fmt.Print("-- ")
+			case matrix[i][j] == -11:
+				matrix[i][j] = -1
+				fmt.Print("<= ")
+			case matrix[i][j] == -22:
+				matrix[i][j] = -1
+				fmt.Print("=> ")
+			case matrix[i][j] == -33:
+				matrix[i][j] = -1
+				fmt.Print("|| ")
+			case matrix[i][j] == -99:
+				fmt.Print("*  ")
+			case matrix[i][j] == -66:
+				fmt.Print("#  ")
+			default:
+				fmt.Printf("%02d ", matrix[i][j])
+			}
+		}
+		fmt.Println()
+	}
+	fmt.Println()
+}
+
+// spawnWildOccupant generates a new wild occupant at a random position in the matrix.
+func spawnWildOccupant() {
+	x := rand.Intn(numRows)
+	y := rand.Intn(numCols)
+    expiresIn := time.Duration(rand.Intn(1000)+1) * time.Second
+    wildOccupants = append(wildOccupants, WildOccupant{X: x, Y: y, ExpiresIn: expiresIn})
+    matrix[x][y] = -99
+	
+}
+
+func moveSpawnWildOccupant(i, j int) bool {
+    isMoved := false
+    if j > 0 && matrix[i][j-1] == -1 {
+		matrix[i][j-1] = matrix[i][j]
+		matrix[i][j] = -1
+		isMoved = true
+	} else if  j < numCols-1 && matrix[i][j+1] == -1 {
+		matrix[i][j+1] = matrix[i][j]
+		matrix[i][j] = -1
+		isMoved = true
+	} else if i > 0 && matrix[i-1][j] == -1 {
+		matrix[i-1][j] = matrix[i][j]
+		matrix[i][j] = -33
+		isMoved = true
+	} else if i < numRows-1 && matrix[i+1][j] == -1 {
+		matrix[i+1][j] = matrix[i][j]
+		matrix[i][j] = -33
+		isMoved = true
+	} 
+	return isMoved
+	
+}
+
+func moveLeft(i, j int) {
+    if j > 0 {
+        if matrix[i][j-1] == -1 {
+    	    matrix[i][j-1] = matrix[i][j]
+    		matrix[i][j] = -11
+        } else if matrix[i][j-1] == -99 {
+            if moveSpawnWildOccupant(i, j) == true {
+                matrix[i][j-1] = matrix[i][j]
+        	    matrix[i][j] = -11
+            }
+        } else if matrix[i][j-1] == -66 {
+            matrix[i][j-1] = -1
+        	matrix[i][j] = -1
+        }
+    }
+    
+}
+
+func moveRight(i, j int) {
+    if j < numCols-1 {
+        if  matrix[i][j+1] == -1 {
+        	matrix[i][j+1] = matrix[i][j]
+        	matrix[i][j] = -22
+	    } else if matrix[i][j+1] == -99 {
+	        if moveSpawnWildOccupant(i, j) == true{
+    	        matrix[i][j+1] = matrix[i][j]
+    		    matrix[i][j] = -22
+	        }
+	    } else if matrix[i][j+1] == -66 {
+            matrix[i][j+1] = -1
+        	matrix[i][j] = -1
+        }
+    } 
+    
+}
+
+func moveUp(i, j int) {
+    if i > 0 {
+        if matrix[i-1][j] == -1 {
+    		matrix[i-1][j] = matrix[i][j]
+    		matrix[i][j] = -33
+    	} else if matrix[i-1][j] == -99 {
+    	    if moveSpawnWildOccupant(i, j) == true{
+    	        matrix[i-1][j] = matrix[i][j]
+    		    matrix[i][j] = -33
+    	    }
+    	} else if matrix[i-1][j] == -66 {
+    	    matrix[i-1][j] = -1
+    		matrix[i][j] = -1
+    	}
+    }
+}
+
+func moveDown(i, j int) {
+    if i < numRows-1 {
+        if matrix[i+1][j] == -1 {
+    		matrix[i+1][j] = matrix[i][j]
+    		matrix[i][j] = -33
+    	} else if matrix[i+1][j] == -99 {
+    	    if moveSpawnWildOccupant(i, j) == true{
+    	        matrix[i+1][j] = matrix[i][j]
+    		    matrix[i][j] = -33
+    	    }
+    	} else if matrix[i+1][j] == -66 {
+    	    matrix[i+1][j] = -1
+    		matrix[i][j] = -1
+    	}
+    }
+}
+
+// spawnThreat generates a new threat at a random position in the matrix.
+func spawnThreat() {
+	x := rand.Intn(numRows)
+	y := rand.Intn(numCols)
+    expiresIn := time.Duration(rand.Intn(100)+1) * time.Second
+    threats = append(threats, Threat{X: x, Y: y, ExpiresIn: expiresIn})
+    matrix[x][y] = -66
+	
+}
+
+// moveTraveler randomly moves a traveler in the matrix based on predefined actions.
+func moveTraveler(i, j int) {
+	action := rand.Intn(5)
+	switch action {
+	case 0: // Stay in place
+	case 1: // Move left if possible
+	    moveLeft(i, j)
+	case 2: // Move right if possible
+	    moveRight(i, j)	
+	case 3: // Move up if possible
+		moveUp(i, j)
+	case 4: // Move down if possible
+		moveDown(i, j)
+	}
+}
+
+// handleWildOccupants updates the state of wild occupants, removing them if their expiration time is reached.
+func handleWildOccupants() {
+	for i, occupant := range wildOccupants {
+		occupant.ExpiresIn -= time.Second
+		if occupant.ExpiresIn <= 0 {
+			wildOccupants = append(wildOccupants[:i], wildOccupants[i+1:]...)
+			matrix[occupant.X][occupant.Y] = -1
+		}
+	}
+}
+
+// handleThreats updates the state of threats, removing them if their expiration time is reached.
+func handleThreats() {
+	for i, threat := range threats {
+		threat.ExpiresIn -= time.Second
+		if threat.ExpiresIn <= 0 {
+			threats = append(threats[:i], threats[i+1:]...)
+			matrix[threat.X][threat.Y] = -1
+		}
+	}
+}
+
+
+func main() {
+	fmt.Print("Podaj liczbę wierszy: ")
+	fmt.Scan(&numRows)
+	fmt.Print("Podaj liczbę kolumn: ")
+	fmt.Scan(&numCols)
+
+	matrix = make([][]int, numRows)
+	for i := range matrix {
+		matrix[i] = make([]int, numCols)
+		for j := range matrix[i] {
+			matrix[i][j] = -1
+		}
+	}
+
+	rand.Seed(time.Now().UnixNano())
+	initializeMatrix()
+
+	go func() {
+		for {
+			time.Sleep(time.Duration(rand.Intn(3)+1) * time.Second)
+			spawnWildOccupant()
+		}
+	}()
+
+	go func() {
+		for {
+			time.Sleep(time.Duration(rand.Intn(3)+1) * time.Second)
+			spawnThreat()
+		}
+	}()
+
+	go func() {
+		currentNumber := 0
+		for {
+			mutex.Lock()
+			emptySpots := make([][2]int, 0)
+			for i := 0; i < numRows; i++ {
+				for j := 0; j < numCols; j++ {
+					if matrix[i][j] == -1 {
+						emptySpots = append(emptySpots, [2]int{i, j})
+					}
+				}
+			}
+
+			if len(emptySpots) > 0 {
+				index := rand.Intn(len(emptySpots))
+				matrix[emptySpots[index][0]][emptySpots[index][1]] = currentNumber
+				currentNumber++
+			}
+
+			mutex.Unlock()
+			time.Sleep(time.Second)
+		}
+	}()
+
+	go func() {
+		for {
+			mutex.Lock()
+			for i := 0; i < numRows; i++ {
+				for j := 0; j < numCols; j++ {
+					if matrix[i][j] >= 0 {
+						moveTraveler(i, j)
+					}
+				}
+			}
+			mutex.Unlock()
+			printMatrix()
+			time.Sleep(500 * time.Millisecond)
+		}
+	}()
+
+	// Periodically print the matrix
+	for {
+		mutex.Lock()
+		handleWildOccupants()
+		handleThreats()
+		mutex.Unlock()
+		printMatrix()
+		time.Sleep(2 * time.Second)
+	}
+}
