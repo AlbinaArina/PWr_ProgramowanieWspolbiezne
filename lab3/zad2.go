@@ -41,9 +41,9 @@ func (rwm *RWMonitor) stopRead() {
 	rwm.readers--
 	if rwm.readers == 0 {
 		rwm.okToWrite.Signal()
-	} else {
-		fmt.Println("Reader finished reading. Current amount of readers:", rwm.readers)
 	}
+	fmt.Println("Reader finished reading. Current amount of readers:", rwm.readers)
+	
 }
 
 func (rwm *RWMonitor) startWrite() {
